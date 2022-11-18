@@ -1,10 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:oktoast/oktoast.dart';
 
 import '../controllers/note_controller.dart';
-import 'draw_screen.dart';
 import 'scrawl_painter.dart';
+
+var logger = Logger();
 
 enum LastEditType {
   undo,
@@ -21,18 +23,20 @@ class NoteView extends StatefulWidget {
 }
 
 class _NoteViewState extends State<NoteView> {
-  /// 上一次编辑的类型
-  LastEditType _lastEditType = LastEditType.draw;
+  /// 记录操作顺序
+  List<EditOrder> editOrderList = [];
+
+  /// 记录总的操作顺序 用来还原数据
+  List<EditOrder> originEditOrderList = [];
 
   ///
   List<Point> points = [
     Point(
-      <TouchPoints>[],
+      points: <TouchPoints>[],
+      hide: false,
+      canvasModel: CanvasModel.Paint,
     ),
   ];
-
-  ///
-  List<Point> originalPoints = [Point(<TouchPoints>[])];
 
   var currentCanvasModel = CanvasModel.Paint;
 
@@ -48,6 +52,13 @@ class _NoteViewState extends State<NoteView> {
 
   Offset _startOffset = Offset(0, 0);
   Offset _endOffset = Offset(0, 0);
+
+  int editOrderIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -188,7 +199,6 @@ class _NoteViewState extends State<NoteView> {
   /// @desc 按下
   void _onTapDown(BuildContext context, TapDownDetails details) {
     if (currentCanvasModel == CanvasModel.ClearLine) {
-      _lastEditType = LastEditType.clear;
       // 显示擦除的圆圈
       _showCircle = true;
       RenderBox box = context.findRenderObject() as RenderBox;
@@ -200,8 +210,14 @@ class _NoteViewState extends State<NoteView> {
             if ((e2.points! - offset).distance <= 10) {
               print('删除轨迹=======$i');
               curFrame = i;
-              points.removeAt(i);
-
+              points[i].hide = true;
+              points[i].canvasModel = CanvasModel.ClearLine;
+              editOrderList.add(
+                EditOrder(curFrame: curFrame, canvasModel: currentCanvasModel),
+              );
+              originEditOrderList.add(
+                EditOrder(curFrame: curFrame, canvasModel: currentCanvasModel),
+              );
               break;
             }
           }
@@ -215,47 +231,37 @@ class _NoteViewState extends State<NoteView> {
   ///
   /// @desc 撤销
   undo() {
-    print(_lastEditType);
-    print(curFrame);
-    if (_lastEditType == LastEditType.clear) {
-      // 还原
-      points.insert(curFrame, originalPoints[curFrame]);
-    } else {
-      if (curFrame == 0) {
-        showToast("没有可撤销的了");
-        return;
-      }
-      curFrame--;
-      points.removeAt(curFrame);
-
-      print(points[curFrame].points.first.paint.color);
-
-      // points
-      //     .map(
-      //       (e) => TouchPoints(
-      //         paint: Paint()
-      //           ..color = Colors.transparent
-      //           ..strokeWidth = 5
-      //           ..style = PaintingStyle.fill
-      //           ..blendMode = BlendMode.clear
-      //           ..isAntiAlias = true,
-      //       ),
-      //     )
-      //     .toList();
+    if (editOrderList.isEmpty) {
+      showToast("没有可撤销的了");
+      return;
     }
+    print(editOrderList.last.curFrame);
+    points[editOrderList.last.curFrame].hide =
+        !points[editOrderList.last.curFrame].hide;
+    editOrderList.removeLast();
+    print(editOrderList);
+    editOrderIndex++;
   }
 
   ///
   ///
   /// @desc 还原
   redo() {
-    if (originalPoints.length == points.length) {
+    if (originEditOrderList.length == editOrderList.length) {
       showToast("没有可还原的了");
       return;
-    } else {
-      points.insert(curFrame, originalPoints[curFrame]);
-      curFrame++;
     }
+
+    /// 获取 originEditOrderList 中的最后一个元素添加到 editOrderList中
+
+    editOrderList
+        .add(originEditOrderList[originEditOrderList.length - editOrderIndex]);
+
+    print(editOrderList);
+
+    points[editOrderList.last.curFrame].hide =
+        !points[editOrderList.last.curFrame].hide;
+    editOrderIndex--;
   }
 
   void _onPointerCancel(PointerEvent event) {
@@ -304,7 +310,13 @@ class _NoteViewState extends State<NoteView> {
           ));
     }
     if (offset == null) {
-      points.add(Point([TouchPoints(points: offset, paint: Paint())]));
+      points.add(Point(
+        points: [
+          TouchPoints(points: offset, paint: Paint()),
+        ],
+        hide: false,
+        canvasModel: CanvasModel.Paint,
+      ));
     }
     setState(() {});
   }
@@ -312,11 +324,6 @@ class _NoteViewState extends State<NoteView> {
   increaseCurFrame() {
     curFrame++;
     setState(() {});
-  }
-
-  void updateOriginalPoints() {
-    originalPoints.clear();
-    originalPoints.addAll(points);
   }
 
   /// 手指抬起
@@ -331,18 +338,20 @@ class _NoteViewState extends State<NoteView> {
     if (event.kind == deviceKind) {
       if (currentCanvasModel == CanvasModel.Paint) {
         addPoints(null);
-        updateOriginalPoints();
+        editOrderList.add(
+          EditOrder(curFrame: curFrame, canvasModel: currentCanvasModel),
+        );
+        originEditOrderList.add(
+          EditOrder(curFrame: curFrame, canvasModel: currentCanvasModel),
+        );
         increaseCurFrame();
       } else if (currentCanvasModel == CanvasModel.Eraser) {
-        updateOriginalPoints();
         addPoints(null);
         increaseCurFrame();
       }
-      print(points);
       setState(() {
         _showCircle = false;
       });
-      _lastEditType = LastEditType.draw;
     }
 
     // if (controller.currentCanvasModel == CanvasModel.Text) {
@@ -353,7 +362,6 @@ class _NoteViewState extends State<NoteView> {
   /// 手指按下
   void _onPointerDown(PointerEvent event) {
     _startOffset = event.localPosition;
-
     if (currentCanvasModel == CanvasModel.ClearLine) {
       setState(() {
         _showCircle = true;
@@ -364,6 +372,23 @@ class _NoteViewState extends State<NoteView> {
 
     if (currentCanvasModel == CanvasModel.Paint) {
       curFrame = points.length - 1;
+    }
+
+    // 如果页面全部撤销后 重新编辑 则所有数据清空
+    var filterList = points.where((e) => !e.hide).toList();
+    print(filterList);
+
+    if (filterList.length == 1) {
+      editOrderList.clear();
+      originEditOrderList.clear();
+      curFrame = 0;
+      editOrderIndex = 0;
+      points.clear();
+      points.add(Point(
+        points: <TouchPoints>[],
+        hide: false,
+        canvasModel: CanvasModel.Paint,
+      ));
     }
 
     // controller.hideTips();

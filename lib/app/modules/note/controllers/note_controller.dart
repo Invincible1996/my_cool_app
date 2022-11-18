@@ -5,9 +5,9 @@ import 'package:get/get.dart';
 import '../views/scrawl_painter.dart';
 
 enum CanvasModel {
-  Paint,
-  Eraser,
-  ClearLine,
+  Paint, //画笔
+  Eraser, // 橡皮擦
+  ClearLine, // 笔画橡皮擦
 }
 
 class NoteController extends GetxController {
@@ -47,7 +47,11 @@ class NoteController extends GetxController {
           ));
     }
     if (offset == null) {
-      points.add(Point([TouchPoints(points: offset!, paint: Paint())]));
+      points.add(Point(
+        points: [TouchPoints(points: offset!, paint: Paint())],
+        hide: false,
+        canvasModel: CanvasModel.Paint,
+      ));
     }
   }
 

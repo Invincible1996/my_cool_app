@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/note_controller.dart';
+
 /// @Author: kevin
 /// @Title: scrawl_painter.dart
 /// @Date: 2022-09-22 15:04:46
@@ -12,12 +14,16 @@ class ScrawlPainter extends CustomPainter {
   });
 
   void paint(Canvas canvas, Size size) {
-    if (points == null || points.isEmpty) {
+    if (points.isEmpty) {
       return;
     }
     canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
     try {
       for (int i = 0; i < points.length; i++) {
+        if (points[i].hide) {
+          continue;
+        }
+
         List<TouchPoints> curPoints = points[i].points;
         for (int i = 0; i < curPoints.length - 1; i++) {
           if (curPoints[i].points != null && curPoints[i + 1].points != null) {
@@ -37,8 +43,10 @@ class ScrawlPainter extends CustomPainter {
 
 class Point {
   List<TouchPoints> points;
+  bool hide;
+  CanvasModel canvasModel; // 画笔的类型
 
-  Point(this.points);
+  Point({required this.points, required this.hide, required this.canvasModel});
 }
 
 class TouchPoints {
@@ -46,4 +54,23 @@ class TouchPoints {
   Offset? points;
 
   TouchPoints({this.points, required this.paint});
+}
+
+class EditOrder {
+  int curFrame;
+  CanvasModel canvasModel;
+
+  EditOrder({required this.curFrame, required this.canvasModel});
+
+  // EditOrder.fromJson(Map<String, dynamic> json) {
+  //   curFrame = json['curFrame'];
+  //   canvasModel = json['canvasModel'];
+  // }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['curFrame'] = this.curFrame;
+    data['canvasModel'] = this.canvasModel;
+    return data;
+  }
 }
