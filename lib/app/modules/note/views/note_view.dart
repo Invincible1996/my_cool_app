@@ -79,7 +79,7 @@ class _NoteViewState extends State<NoteView> {
                       currentCanvasModel = CanvasModel.Paint;
                     });
                   },
-                  child: const Text('笔画'),
+                  child: const Icon(Icons.edit),
                 ),
                 const SizedBox(
                   width: 20,
@@ -107,9 +107,7 @@ class _NoteViewState extends State<NoteView> {
                   width: 20,
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    undo();
-                  },
+                  onPressed: editOrderList.isEmpty ? null : undo,
                   icon: const Icon(Icons.undo_outlined),
                   label: const Text('撤销'),
                 ),
@@ -117,12 +115,29 @@ class _NoteViewState extends State<NoteView> {
                   width: 20,
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    redo();
-                  },
+                  onPressed: originEditOrderList.length == editOrderList.length
+                      ? null
+                      : redo,
                   icon: const Icon(Icons.redo_outlined),
                   label: const Text('还原'),
                 ),
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(
+                    Icons.redo_outlined,
+                    color: Colors.blue,
+                  ),
+                ),
+                const SizedBox(
+                  width: 20,
+                ),
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(
+                    Icons.delete,
+                    color: Colors.blue,
+                  ),
+                )
               ],
             ),
           ),
@@ -241,6 +256,7 @@ class _NoteViewState extends State<NoteView> {
     editOrderList.removeLast();
     print(editOrderList);
     editOrderIndex++;
+    setState(() {});
   }
 
   ///
@@ -262,6 +278,8 @@ class _NoteViewState extends State<NoteView> {
     points[editOrderList.last.curFrame].hide =
         !points[editOrderList.last.curFrame].hide;
     editOrderIndex--;
+
+    setState(() {});
   }
 
   void _onPointerCancel(PointerEvent event) {
